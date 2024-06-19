@@ -26,6 +26,8 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
   @Override
   public boolean onExecutePlayerCommand(Player player, Command command, String label,
       String[] args) {
+    player.teleport(new Location(player.getWorld(), -372, 51, -3770));
+
     Location chestLocation = getChestSpawnLocation(player);
     chestLocation.getBlock().setType(Material.CHEST);
     return false;
