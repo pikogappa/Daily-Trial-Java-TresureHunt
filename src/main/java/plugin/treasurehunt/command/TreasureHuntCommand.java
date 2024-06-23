@@ -32,6 +32,7 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
   private Main main;
   private int gameTime;
   private Location originalLocation;
+  private List<Location> chestLocations;
 
   public TreasureHuntCommand(Main main) {
     this.main = main;
@@ -42,7 +43,7 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
       String[] args) {
     originalLocation = player.getLocation();
     playerTeleport(player);
-    List<Location> chestLocations = getChestSpawnLocation(player);
+    chestLocations = getChestSpawnLocation(player);
     startGame(player);
     return false;
   }
@@ -108,10 +109,9 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
   }
 
   private void startGame(Player player) {
-//    BossBar bossBar = Bukkit.createBossBar("Time Remaining", BarColor.RED,
-//        BarStyle.SOLID);
-//    bossBar.addPlayer(player);
-//    bossBar.setProgress(1.0);
+    BossBar bossBar = Bukkit.createBossBar("残り時間", BarColor.RED, BarStyle.SOLID);
+    bossBar.addPlayer(player);
+    bossBar.setProgress(1.0);
     gameTime = 10;
 
     Bukkit.getScheduler().runTaskTimer(main, new Runnable() {
@@ -121,21 +121,34 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
           this.cancel();
 
           player.sendTitle("ゲームが終了しました",
-              "元の位置に戻します",
+              "元の場所にテレポートします",
               0, 60, 0);
 
           player.teleport(originalLocation);
+          removeChests();
+          bossBar.removeAll();
 
           return;
         }
 
-        gameTime -= 5; // ゲーム時間を5秒減少させる
+        gameTime -= 1; // ゲーム時間を5秒減少させる
+        bossBar.setProgress(gameTime / 10.0);
       }
 
       private void cancel() {
         Bukkit.getScheduler().cancelTasks(main);
       }
-    }, 0, 5 * 20);
+    }, 0, 20);
+  }
+
+  private void removeChests() {
+    for (Location location : chestLocations) {
+      Block block = location.getBlock();
+      if (block.getType() == Material.CHEST) {
+        block.setType(Material.AIR);
+      }
+    }
+    chestLocations.clear();
   }
 
 }
