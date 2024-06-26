@@ -2,6 +2,7 @@ package plugin.treasurehunt.command;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.SplittableRandom;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -17,9 +18,14 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerPickupItemEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 import plugin.treasurehunt.Main;
 
 
@@ -33,6 +39,9 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
   private int gameTime;
   private Location originalLocation;
   private List<Location> chestLocations;
+  private int playerScore;
+  private BossBar bossBar;
+  private BukkitTask gameTask;
 
   public TreasureHuntCommand(Main main) {
     this.main = main;
@@ -91,7 +100,6 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
       Location chestLocation = new Location(player.getWorld(), x, y, z);
       chestLocation.getBlock().setType(Material.CHEST);
 
-      // チェストにアイテムを追加
       Block block = chestLocation.getBlock();
       if (block.getState() instanceof Chest) {
         Chest chest = (Chest) block.getState();
@@ -109,12 +117,12 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
   }
 
   private void startGame(Player player) {
-    BossBar bossBar = Bukkit.createBossBar("残り時間", BarColor.RED, BarStyle.SOLID);
+    bossBar = Bukkit.createBossBar("残り時間", BarColor.RED, BarStyle.SOLID);
     bossBar.addPlayer(player);
     bossBar.setProgress(1.0);
     gameTime = 10;
 
-    Bukkit.getScheduler().runTaskTimer(main, new Runnable() {
+    gameTask = Bukkit.getScheduler().runTaskTimer(main, new Runnable() {
       @Override
       public void run() {
         if (gameTime <= 0) {
@@ -131,7 +139,7 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
           return;
         }
 
-        gameTime -= 1; // ゲーム時間を5秒減少させる
+        gameTime -= 1;
         bossBar.setProgress(gameTime / 10.0);
       }
 
@@ -151,4 +159,46 @@ public class TreasureHuntCommand extends BaseCommand implements CommandExecutor,
     chestLocations.clear();
   }
 
+  private void endGame(Player player) {
+    if (gameTask != null) {
+      gameTask.cancel();
+    }
+    player.sendTitle("ゲームが終了しました", "元の場所にテレポートします", 0, 60, 0);
+    player.teleport(originalLocation);
+    removeChests();
+    if (bossBar != null) {
+      bossBar.removeAll();
+    }
+  }
+  @EventHandler
+  public void onInventoryClick(InventoryClickEvent event) {
+    if (event.getClickedInventory() != null && event.getClickedInventory().getHolder() instanceof Chest) {
+      Player player = (Player) event.getWhoClicked();
+      ItemStack item = event.getCurrentItem();
+
+      if (item != null && item.getType() == Material.DIAMOND) {
+        handleDiamondPickup(player);
+      }
+    }
+  }
+
+  @EventHandler
+  public void onEntityPickupItem(EntityPickupItemEvent event) {
+    Entity entity = event.getEntity();
+    if (entity instanceof Player) {
+      Player player = (Player) entity;
+      ItemStack item = event.getItem().getItemStack();
+
+      if (item.getType() == Material.DIAMOND) {
+        handleDiamondPickup(player);
+      }
+    }
+  }
+
+  private void handleDiamondPickup(Player player) {
+    int currentScore = 0;
+    playerScore = currentScore + 10; // ダイヤモンド取得で10点加算
+    player.sendMessage("ダイヤモンドを取得しました！現在の得点: " + playerScore);
+    endGame(player); // ゲーム終了
+  }
 }
